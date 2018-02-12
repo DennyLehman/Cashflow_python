@@ -74,6 +74,9 @@ for i in range(0, len(sys_name)):
     # Calculate the npv of the system and store it in the npv array
     npv_arr[i] = cfprocess.npv(Discount_rate, df.loc[ins_date[i]:end_date[i], sys_name[i]])
 
+# rename the index as the date column
+df.index.name = 'Date'
+
 #Print the date range used for the fleet
 print(df.loc[min(ins_date):max(end_date)])
 
@@ -87,4 +90,4 @@ total_npv = cfprocess.npv(Discount_rate, df['Total Cash Flow'][df['Total Cash Fl
 print('The total NPV: {0}'.format(round(float(total_npv),2)))
 
 # saves the model into a csv file
-df.to_csv(r'C:\Users\denny.lehman\Documents\18_01 Monthly Portfolio Report\test.csv')
+df.to_csv('test.csv')
