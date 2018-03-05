@@ -38,7 +38,7 @@ def get_datatape(filepath):
     start = time.time()
     
     # df1 = pd.read_excel(filepath, sheetname = 'Active header1', index_col=None, na_values=['NA'], parse_cols="A:D,J,N,T,AG")
-    df1 = pd.read_excel(filepath, sheetname='Active', header=4, index_col=None, na_values=['N/A'], parse_cols="C:F,L,P,V,AI") #, converters={'Interconnected': pd.to_datetime})
+    df1 = pd.read_excel(filepath, sheetname='Active', header=4, index_col=None, na_values=['N/A'], parse_cols="C:F,J,L,P,V,AI") #, converters={'Interconnected': pd.to_datetime})
     print(time.time()-start)
     # df1 = pd.read_excel(filepath, index_col=None, na_values=['NA'], parse_cols="A:D,J,N,T,AG", dtype=dtypes)
     # df1 = pd.read_excel(io=filepath, header=None, names=list_of_column_names_required, dtype=dtypes)
@@ -48,7 +48,7 @@ def get_datatape(filepath):
 #        
 #    df1 = df1.drop(list_of_columns, axis=1) 
     
-    df1 = df1.rename(columns= {'Interconnected':'InService Date', 'Type':'Contract Type', 'Capital ($)':'Committed Capital', '%':'Escalator', 'Year 1':'Recurring Payment'})
+    df1 = df1.rename(columns= {'Interconnected':'InService Date', 'Type':'Contract Type', 'Capital ($)':'Committed Capital', 'Estimate':'Annual Attribute', '%':'Escalator', 'Year 1':'Recurring Payment'})
     return df1
     
 
@@ -97,4 +97,28 @@ def create_first_payment_and_last_payment_date(df):
     
     # Convert End date to date time
     df['End Date'] = pd.to_datetime(df['End Date'])# Make first payment date
+    
+    return df
+
+def year_diff(i):
+    r = range(df['First Payment Date'], df['End Date'])
+    year_d = r - ins
+    return 1
+def calculate_production():
+    Sens = 0.975
+    DF = 0.005
+    curr_date = datetime.date('2017',)
+    year_diff = 0
+    annual_attribute = 5888 
+    seasonality_curve_factor = get_seasonality_curve()
+    
+    production = annual_attribute * (1 - Sens) * (1 - DF) ** year_diff * seasonality_curve_factor
+
+
+    return 1
+
+def get_seasonality_curve():
+    val = 1/12
+    return val
+
    
