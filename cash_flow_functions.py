@@ -30,29 +30,26 @@ def get_datatape_csv(filepath):
     df3 = df3.rename(columns=rename_list)
     
 def get_datatape(filepath):
-    list_of_column_names_required = ['Asset Portfolio', 'ID', 'Capital ($)', 'Type', '$/kW', '%', 'Partner', 'Interconnected', 'Year 1', 'State']
-    
+
     start = time.time()
     
-    # df1 = pd.read_excel(filepath, sheetname = 'Active header1', index_col=None, na_values=['NA'], parse_cols="A:D,J,N,T,AG")
-    df1 = pd.read_excel(filepath, sheetname='Active', header=4, index_col=None, na_values=['N/A'], parse_cols="C:F,J:L,P,V,AI,N") #, converters={'Interconnected': pd.to_datetime})
+    # Import S1 datatape to Pandas DataFrame
+    df1 = pd.read_excel(filepath, sheetname='Active', header=4, index_col=None, na_values=['N/A'], parse_cols="C:F,J:L,P,V,AI,N,AY") #, converters={'Interconnected': pd.to_datetime})
     print(time.time()-start)
  
-    
-    df1 = df1.rename(columns= {'Interconnected':'InService Date', 'Type':'Contract Type', 'Capital ($)':'Committed Capital', 'Estimate':'Annual Attribute', '$/kW':'Power Rate', '%':'Escalator', 'Year 1':'Recurring Payment', 'Location':'State'})
+    # Rename Columns    
+    df1 = df1.rename(columns= {'Interconnected':'InService Date', 'Type':'Contract Type', 'Capital ($)':'Committed Capital', 'Estimate':'Annual Attribute', '$/kW':'Power Rate', '%':'Escalator', 'Year 1':'Recurring Payment', 'Location':'State', 'Quote: RIS CoverPg Monthly Pmt Without PPMT':'Monthly Pmt Without PPMT'})
     return df1
 
 def get_S1_datatape(filepath):
-    list_of_column_names_required = ['Asset Portfolio - Customer', 'System Project: Sunnova System ID', 'Committed Capital', 'Quote: Contract Type', 'Quote: Recurring Payment', 'Quote: Expected Production - Change Order', 'Quote: Solar Rate', 'Quote: Payment Escalator', 'Quote: Installation State', 'InService Date']
-    
-    start = time.time()
-    
+    start = time.time()    
+
     # df1 = pd.read_excel(filepath, sheetname = 'Active header1', index_col=None, na_values=['NA'], parse_cols="A:D,J,N,T,AG")
-    df1 = pd.read_excel(filepath, sheetname='Active', header=2, index_col=None, na_values=['N/A'], parse_cols="D:F,I,L,O,U,AH,P,Q")
+    df1 = pd.read_excel(filepath, sheetname='Active', header=2, index_col=None, na_values=['N/A'], parse_cols="D:F,I,L,O,U,AH,P,Q,AY")
     print(time.time()-start)
  
-    
-    df1 = df1.rename(columns= {'Asset Portfolio - Customer':'Asset Portfolio - Customer','System Project: Sunnova System ID':'ID', 'Committed Capital':'Committed Capital', 'Quote: Contract Type':'Contract Type','InService Date':'InService Date', 'Quote: Expected Production - Change Order':'Annual Attribute', 'Quote: Solar Rate':'Power Rate', 'Quote: Payment Escalator':'Escalator', 'Quote: Recurring Payment':'Recurring Payment', 'Quote: Installation State':'State'})
+    # Rename the columns in the dataframe to be more concise and descriptive    
+    df1 = df1.rename(columns= {'Asset Portfolio - Customer':'Asset Portfolio - Customer','System Project: Sunnova System ID':'ID', 'Committed Capital':'Committed Capital', 'Quote: Contract Type':'Contract Type','InService Date':'InService Date', 'Quote: Expected Production - Change Order':'Annual Attribute', 'Quote: Solar Rate':'Power Rate', 'Quote: Payment Escalator':'Escalator', 'Quote: Recurring Payment':'Recurring Payment', 'Quote: Installation State':'State', 'Quote: RIS CoverPg Monthly Pmt Without PPMT':'Monthly Pmt Without PPMT'})
     return df1
     
 
@@ -91,6 +88,29 @@ def convert_date_to_EOM(ser):
     ser = ser + MonthEnd(1)
     return ser
 
+def create_first_production_first_payment_and_last_payment_date(df):
+    
+    # initialize new columns of dataframe
+    df['First Payment Date'] = pd.to_datetime(0)
+    df['Last Payment Date'] = pd.to_datetime(0)
+    
+    # Make first production date - the end of month one month after inservice date
+    df['First Production Date'] = pd.to_datetime(df['InService Date']) + pd.DateOffset(months=1) + MonthEnd(0)
+     
+    # Set all values for first payment date to first production date - the ppa systems will be changed later
+    df['First Payment Date'] = df['First Production Date']
+    
+    # Set all values for last payment date = 300 month offset.
+    df['Last Payment Date'] = df['First Payment Date'] + pd.DateOffset(months=300) + MonthEnd(0)
+    
+    df_ppas = get_contract_type(df, ['PPA', 'PPA-EZ', 'EZ PPA-Connect']).loc[:,'InService Date']
+   
+    df.loc[df_ppas.index,'First Payment Date'] = df_ppas + pd.DateOffset(months=2) + MonthEnd(0)
+
+    df.loc[df_ppas.index,'Last Payment Date'] = df_ppas + pd.DateOffset(months=301) + MonthEnd(0)
+    
+    return df
+    
 def create_first_production_first_payment_and_last_payment_for_ppa(df):
     
     #do start of month, then offset date, then push to month end
@@ -198,4 +218,17 @@ def get_seasonality_curve_300(df_state_curve, state, start_month):
 def get_state_curve_data(filepath):
     return pd.read_excel(filepath)
 
+def calculate_production(df):
+    #production_date_range = pd.date_range(df_tape['InService Date'].min(), end=df_ppa_ppaez['Last Payment Date'].max() , freq= 'M')
+    
+    # Initialize production DataFrame
+    df_prod = pd.DataFrame(index=range(1,301), columns=['ID','Date','Production'])
+    for i in range(0,df.index.size):
+        # calc date range
+        dates = df['First Payment Date'].iloc[i]
+        # calc production
+        #production = cash_flow_functions.calculate_production(annual_attribute, Sens, Degradation_Factor, year_difference, seasonality_curve)
+
+    df_prod
+    pass
    
