@@ -47,34 +47,36 @@ Discount_rate = 0.06/12
 year_difference = cash_flow_functions.year_diff_300()
 
 # MSA Master Servicing Agreement- agreement between AP and Sunnova
-#MSA = 20 per year per kw with 2% escalator take it out every month (kw is system size)
+#MSA = $20 per year per kw (system size) with 2% escalator take it out every month (kw is system size)
+#
 
 #%%
 # Remove systems not yet InService
 df_tape = cash_flow_functions.remove_non_inService_Systems(df_tape)
 
-# Escaltor 
+# Escaltor results to decimal
 df_tape['Escalator'] = df_tape['Escalator']/100
 
+df_tape = cash_flow_functions.create_first_production_first_payment_and_last_payment_date(df_tape)
+
 # Only pull lease, loan ez own contract types
-df_lease_loan_ezown = cash_flow_functions.get_contract_type(df_tape, ['Lease', 'Loan', 'EZ-Own', 'Lease Storage'])
+df_lease_ezown = cash_flow_functions.get_contract_type(df_tape, ['Lease', 'EZ-Own', 'Lease Storage'])
 
 # Only pull ppa, ppa-ez, ez ppa connect
 df_ppa_ppaez = cash_flow_functions.get_contract_type(df_tape, ['PPA', 'PPA-EZ', 'EZ PPA-Connect'])
 
-
-df_lease_loan_ezown = cash_flow_functions.create_first_payment_and_last_payment_date(df_lease_loan_ezown)
+#%*******************change this code**********************
+df_lease_ezown = cash_flow_functions.create_first_payment_and_last_payment_date(df_lease_ezown)
 
 df_ppa_ppaez = cash_flow_functions.create_first_production_first_payment_and_last_payment_for_ppa(df_ppa_ppaez)
 
-# Store tape for review
-df_tape1 = df_tape
+
 #%%
 # Empty NPV array for later storing NPV values
-npv_arr = [0] * (df_tape['ID'].size)
-
 # Empty array to store the time of each cash flow creation. This will be used to optimize performance
-time_array = [0] * (df_tape['ID'].size)
+financial_dictionary = {'NPV':[0] * (df_tape['ID'].size), 'Calc Time':[0] * (df_tape['ID'].size), 'IRR':[0] * (df_tape['ID'].size)}
+df_fin = pd.DataFrame(financial_dictionary, index=df_tape['ID'])
+
 
 # build a date range
 cf_date_rng = pd.date_range(df_tape['InService Date'].min(), end=df_ppa_ppaez['Last Payment Date'].max() , freq= 'M')
@@ -101,8 +103,6 @@ total_npv = cash_flow_functions.npv(Discount_rate, df_cf['Monthly Cash Flow'][df
 print('The total NPV: {0}'.format(round(float(total_npv),2)))
 
 # saves the model into a csv file
-# df_cf.to_csv('test_nosum.csv')
-
 #df_cf.T.to_csv('empty.csv')
 
 print('Total time taken for {0} systems: {1} seconds'.format(0, time.time() - start_process))
@@ -146,10 +146,12 @@ for i in range(0, df_ppa_ppaez['ID'].size):
     if i % 100 == 0:
         print('{0} systems processed. Time is {1} ...'.format(i, time.time() - start_process))
 
+
+
 #%%
         
 # for loop builds the cash flow for each system
-for i in range(0, df_lease_loan_ezown['ID'].size):
+for i in range(0, df_lease_ezown['ID'].size):
     
     # Start timer
     loop_start_time = time.time()
@@ -158,11 +160,14 @@ for i in range(0, df_lease_loan_ezown['ID'].size):
     # print(df_tape['ID'].iloc[i])
     
     # make one data pull from df_tape
-    first_date = df_lease_loan_ezown['First Payment Date'].iloc[i]
-    end_date = df_lease_loan_ezown['Last Payment Date'].iloc[i]
-    sys_name = df_lease_loan_ezown['ID'].iloc[i]
-    escalator = df_lease_loan_ezown['Escalator'].iloc[i]
-    recur_payment = df_lease_loan_ezown['Recurring Payment'].iloc[i]
+    first_date = df_lease_ezown['First Payment Date'].iloc[i]
+    end_date = df_lease_ezown['Last Payment Date'].iloc[i]
+    sys_name = df_lease_ezown['ID'].iloc[i]
+    escalator = df_lease_ezown['Escalator'].iloc[i]
+    recur_payment = df_lease_ezown['Recurring Payment'].iloc[i]
+    
+    # if df_lease_loan_ezown['Contract Type'].iloc[i] == 'Loan':
+        
     
     # For performance, check if the escalator is 0. If so, skip the escalator function
     if escalator == 0:
@@ -199,8 +204,24 @@ for i in range(0, df_lease_loan_ezown['ID'].size):
         print('{0} systems processed. Time is {1} ...'.format(i, time.time() - start_process))
 
 #%%
+df_loan = cash_flow_functions.get_contract_type(df_tape, ['Loan'])
+df_loan = cash_flow_functions.create_first_payment_and_last_payment_date(df_loan)
+
+df_loan['Last Initial Billing Date'] = df_loan['First Payment Date'] + pd.DateOffset(months=12)
+df_loan['New Billing Date'] = df_loan['First Payment Date'] + pd.DateOffset(months=13)
+#pd.date_range(df_loan['First Payment Date'].iloc[i], periods=12, freq='M')
+for i in range(0, df_loan['ID'].size):
+    first_date = df_loan['First Payment Date'].iloc[i]
+    end_of_init_pay = df_loan['Last Initial Billing Date'].iloc[i]
+    start_of_new_pay = df_loan['New Billing Date'].iloc[i]
+    last_date = df_loan['Last Payment Date'].iloc[i]
+    sys_name = df_loan['ID'].iloc[i]
+    df_cf.loc[first_date:end_of_init_pay, sys_name] = df_loan['Recurring Payment'].iloc[i]
+    df_cf.loc[start_of_new_pay:last_date, sys_name] = df_loan['Monthly Pmt Without PPMT'].iloc[i]
+
+#%%
 # Write to file
 print('Writing to file ...')
 df_cf.T.to_csv('test_transpose.csv')
 print('Total time taken for {0} systems: {1} seconds'.format(i, time.time() - start_process))
-print('Average time taken for a cash flow: {0}'.format(np.mean(time_array[1:17000])))
+print('Average time taken for a cash flow: {0}'.format(np.mean(time_array[1:47000])))
